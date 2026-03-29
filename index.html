@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Job Listing Portal</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f4f6fb; color: #222; }
+      header { background: #2f80ed; color: #fff; padding: 20px; text-align: center; }
+      main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.06); margin-bottom: 14px; padding: 14px 16px; }
+      .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+      input, select { padding: 8px 10px; border: 1px solid #ccd7ee; border-radius: 8px; }
+      button { background: #2f80ed; border: none; color: white; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+      button:disabled { background: #aac4f9; cursor: not-allowed; }
+      .job-header { background: linear-gradient(135deg, #2f80ed 0%, #56ccf2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+      .job-header h2 { margin: 0 0 8px 0; }
+      .job-header p { margin: 0; font-size: 0.9em; opacity: 0.9; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Job Listing Portal</h1>
+      <p>Frontend ready: run backend first and set MONGO_URI in backend/.env</p>
+    </header>
+    <main>
+      <div class="controls">
+        <input id="search" placeholder="Search jobs by keyword" />
+        <input id="location" placeholder="Location" />
+        <select id="jobType">
+          <option value="">Any type</option>
+          <option value="Full-Time">Full-Time</option>
+          <option value="Part-Time">Part-Time</option>
+          <option value="Contract">Contract</option>
+          <option value="Internship">Internship</option>
+        </select>
+        <button id="reload">Load Jobs</button>
+      </div>
+      <section id="jobs"></section>
+      <div id="error" style="color:red;"></div>
+    </main>
+
+    <script>
+      // Sample Jobs Data
+      const sampleJobs = [
+        { id: 1, title: 'Senior Frontend Developer', company: 'TechCorp India', location: 'Bangalore', jobType: 'Full-Time', salary: '₹10-12 LPA', description: 'We are looking for an experienced Frontend Developer with 5+ years of expertise in React, TypeScript, and modern web technologies.' },
+        { id: 2, title: 'Backend Engineer', company: 'CloudSoft Solutions', location: 'Pune', jobType: 'Full-Time', salary: '₹8-10 LPA', description: 'Join our backend team to build scalable microservices using Node.js, PostgreSQL, and AWS infrastructure.' },
+        { id: 3, title: 'Full Stack Developer', company: 'InnovateLabs', location: 'Hyderabad', jobType: 'Full-Time', salary: '₹6-9 LPA', description: 'Seeking a Full Stack Developer with experience in both frontend and backend technologies to work on diverse projects.' },
+        { id: 4, title: 'Data Science Engineer', company: 'DataDriven AI', location: 'Gurugram', jobType: 'Full-Time', salary: '₹9-11 LPA', description: 'Build machine learning models and data pipelines using Python, TensorFlow, and cloud platforms.' },
+        { id: 5, title: 'DevOps Specialist', company: 'SystemFlow Tech', location: 'Mumbai', jobType: 'Full-Time', salary: '₹7-10 LPA', description: 'Manage infrastructure, CI/CD pipelines, and containerized deployments using Docker, Kubernetes, and CI/CD tools.' },
+        { id: 6, title: 'Mobile App Developer', company: 'AppCrafters Inc', location: 'Noida', jobType: 'Full-Time', salary: '₹6-9 LPA', description: 'Develop cross-platform mobile applications using React Native or Flutter with excellent UI/UX practices.' },
+        { id: 7, title: 'QA Automation Engineer', company: 'QualityFirst Labs', location: 'Chennai', jobType: 'Full-Time', salary: '₹5-7 LPA', description: 'Create automated test frameworks and ensure software quality through comprehensive testing strategies.' },
+        { id: 8, title: 'Product Manager', company: 'NextGen Solutions', location: 'Bangalore', jobType: 'Full-Time', salary: '₹10-12 LPA', description: 'Lead product strategy and roadmap for our flagship SaaS platform serving thousands of customers worldwide.' }
+      ];
+
+      function filterJobs(jobs, keyword, location, jobType) {
+        return jobs.filter(job => {
+          const keywordMatch = !keyword || job.title.toLowerCase().includes(keyword.toLowerCase()) || job.description.toLowerCase().includes(keyword.toLowerCase());
+          const locationMatch = !location || job.location.toLowerCase().includes(location.toLowerCase());
+          const jobTypeMatch = !jobType || job.jobType === jobType;
+          return keywordMatch && locationMatch && jobTypeMatch;
+        });
+      }
+
+      async function loadJobs() {
+        const keyword = document.querySelector('#search').value;
+        const location = document.querySelector('#location').value;
+        const jobType = document.querySelector('#jobType').value;
+
+        const jobsEl = document.querySelector('#jobs');
+        const errorEl = document.querySelector('#error');
+        jobsEl.innerHTML = '<p>Loading...</p>'; errorEl.textContent='';
+
+        try {
+          // Always filter sample jobs
+          let jobs = filterJobs(sampleJobs, keyword, location, jobType);
+          
+          // Try to fetch from backend and merge
+          try {
+            const qs = new URLSearchParams({ keyword, location, jobType });
+            const res = await fetch('http://localhost:5000/api/jobs?' + qs.toString());
+            if (res.ok) {
+              const backendJobs = await res.json();
+              if (backendJobs && backendJobs.length > 0) {
+                jobs = backendJobs;
+              }
+            }
+          } catch (backendErr) {
+            // Silent fail - use sample jobs
+          }
+
+          // Display results
+          if (!jobs || jobs.length === 0) {
+            jobsEl.innerHTML = '<div class="card"><p>No jobs found. Try different search criteria.</p></div>';
+            return;
+          }
+
+          jobsEl.innerHTML = jobs.map(job => `
+            <article class="card">
+              <h3>${job.title}</h3>
+              <p><strong>Company:</strong> ${job.company || job.employer?.company || job.employer?.name || 'N/A'}</p>
+              <p><strong>Location:</strong> ${job.location || 'Remote'}</p>
+              <p><strong>Type:</strong> ${job.jobType}</p>
+              <p><strong>Salary:</strong> ${job.salary || 'Competitive'}</p>
+              <p>${job.description.substring(0, 180)}...</p>
+            </article>
+          `).join('');
+        } catch (err) {
+          errorEl.textContent = 'Error: ' + err.message;
+          jobsEl.innerHTML = '';
+        }
+      }
+
+      // Add event listeners for real-time search
+      document.querySelector('#search').addEventListener('change', loadJobs);
+      document.querySelector('#location').addEventListener('change', loadJobs);
+      document.querySelector('#jobType').addEventListener('change', loadJobs);
+      document.querySelector('#reload').addEventListener('click', loadJobs);
+      
+      // Load on page load
+      loadJobs();
+    </script>
+  </body>
+</html>
